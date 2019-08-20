@@ -23,8 +23,8 @@ class BtreeTestCase(unittest.TestCase):
 
     def test_leaf_node(self):
         leaf_node = bAddTree.BtreeLeaf(self.leaf)
-        leaf_node._is_full()
-        leaf_node._is_leaf()
+        leaf_node.is_full()
+        leaf_node.is_leaf()
 
     def test_b_tree_split_leaf(self):
         bp_tree = bAddTree.Btree(self.leaf, self._inter_node_num)
@@ -61,13 +61,36 @@ class BtreeTestCase(unittest.TestCase):
         key_value = bAddTree.KeyValue(6, 7)
         print(bAddTree.bisect_right_map(self.test_list, key_value))
 
+    def test_bisect_left_map(self):
+        key_value = bAddTree.KeyValue(6, 7)
+        print(bAddTree.bisect_left_map(self.test_list, key_value))
+
     def test_traversal(self):
-        bp_tree = bAddTree.Btree(self.leaf, self._inter_node_num)
-        for i in range(20):
-            bp_tree.insert(self.test_list[i])
-        self.split_node(bp_tree)
+        bp_tree = self.insertBtree()
         result = bp_tree.traversal()
-        print(result)
+        for key_value in result:
+            print(str(key_value.key) + ":" + str(key_value.value))
+
+    def insertBtree(self):
+        bp_tree = bAddTree.Btree(self.leaf, self._inter_node_num)
+        self.test_list.append(bAddTree.KeyValue(5, 55))
+        self.test_list.append(bAddTree.KeyValue(9, 105))
+        self.test_list.append(bAddTree.KeyValue(60, 44))
+        for key_value in self.test_list:
+            bp_tree.insert(key_value)
+        return bp_tree
+
+    def test_search(self):
+        bp_tree = self.insertBtree()
+        result = bp_tree.search(bAddTree.KeyValue(5, 55), bAddTree.KeyValue(9, 105))
+        for key_value in result:
+            print(str(key_value.key) + ":" + str(key_value.value))
+
+    def test_show(self):
+        bp_tree = bAddTree.Btree(self.leaf, self._inter_node_num)
+        for key_value in self.test_list:
+            bp_tree.insert(key_value)
+        bp_tree.show()
 
     @staticmethod
     def test_array_split():
