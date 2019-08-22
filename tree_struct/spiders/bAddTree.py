@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-from bisect import bisect_right, bisect_left
+from bisect import bisect_right
 from collections import deque
+import math
 
 
 class InitError(Exception):
@@ -58,6 +59,9 @@ class BtreeInterNode(object):
     def is_empty(self):
         return len(self.tree_leaf_mid_key) > 0
 
+    def is_rich(self):
+        return len(self.tree_leaf_mid_key) >= math.ceil(self.__inter_node_num - 1) / 2 - 1
+
     @property
     def get_inter_node_num(self):
         return self.__inter_node_num
@@ -89,6 +93,9 @@ class BtreeLeaf(object):
     def is_empty(self):
         return len(self.v_list) > 0
 
+    def is_rich(self):
+        return len(self.v_list) >= math.ceil((self.___leaf_num - 1) / 2) - 1
+
     @property
     def get_leaf_num(self):
         return self.___leaf_num
@@ -119,7 +126,7 @@ def bisect_left_map(first_map, second_map, low=0, high=None):
     while low < high:
         mid = (low + high) // 2
         if first_map[mid].key < second_map.key:
-            low = mid+1
+            low = mid + 1
         else:
             high = mid
     return low
@@ -174,10 +181,10 @@ class Btree(object):
             index = _inter_node.par.tree_leaf_list.index(_inter_node)
             _inter_node.par.tree_leaf_mid_key.insert(index, _inter_node.tree_leaf_mid_key.pop(mid))
             _inter_node.par.tree_leaf_list.insert(index + 1, _new_inter_node)
-        _new_inter_node.tree_leaf_list.append(_inter_node.tree_leaf_list.pop(mid+1))
+        _new_inter_node.tree_leaf_list.append(_inter_node.tree_leaf_list.pop(mid + 1))
         while len(_inter_node.tree_leaf_mid_key) > mid:
             _new_inter_node.tree_leaf_mid_key.append(_inter_node.tree_leaf_mid_key.pop(mid))
-            _new_inter_node.tree_leaf_list.append(_inter_node.tree_leaf_list.pop(mid+1))
+            _new_inter_node.tree_leaf_list.append(_inter_node.tree_leaf_list.pop(mid + 1))
         _new_inter_node.par = _inter_node.par
         for _tree_leaf in _new_inter_node.tree_leaf_list:
             _tree_leaf.par = _new_inter_node
@@ -320,98 +327,86 @@ class Btree(object):
     def del_node(self, node, kv):
         if not node.is_leaf():
             index = bisect_right(node.tree_leaf_mid_key, kv.key)
-            if index == len(node.tree_leaf_mid_key):
-                if not node.tree_leaf_list[index].is_empty():
-                    return self.del_node(node.tree_leaf_list[index], kv)
-                elif not node.tree_leaf_list[index - 1].is_empty():
-                    self.tran_left_to_right(node, index - 1)
-                    return self.del_node(node.tree_leaf_list[index], kv)
-                else:
-                    return self.del_node(self.merge(node, index), kv)
-            else:
-                if not node.tree_leaf_list[index].is_empty():
-                    return self.del_node(node.tree_leaf_list[index], kv)
-                elif not node.tree_leaf_list[index + 1].is_empty():
-                    self.tran_right_to_left(node, index)
-                    return self.del_node(node.tree_leaf_list[index], kv)
-                else:
-                    return self.del_node(self.merge(node, index), kv)
+            self.del_node(node.tree_leaf_list[index], kv)
         else:
-            p = bisect_left(node.v_list, kv)
+            p = bisect_left_map(node.v_list, kv)
             try:
                 pp = node.v_list[p]
             except IndexError:
                 return -1
+            if pp != kv:
+                return -1
             else:
-                if pp != kv:
-                    return -1
-                else:
-                    node.v_list.remove(kv)
+                node.v_list.remove(kv)
+                if node.is_rich():
                     return 0
+                else:
+                    self.arrange_node(node, kv)
 
-    def tran_left_to_right(self, node, index):
-        if not node.tree_leaf_list[index].is_leaf():
-            node.tree_leaf_list[index + 1].tree_leaf_list.insert(0, node.tree_leaf_list[index].tree_leaf_list[-1])
-            node.tree_leaf_list[index].tree_leaf_list[-1].par = node.tree_leaf_list[index + 1]
-            node.tree_leaf_list[index + 1].tree_leaf_mid_key.insert(0, node.tree_leaf_mid_key[index])
-            node.tree_leaf_mid_key[index] = node.clist[index].tree_leaf_mid_key[-1]
-            node.tree_leaf_list[index].tree_leaf_list.pop()
-            node.tree_leaf_list[index].tree_leaf_mid_key.pop()
-        else:
-            node.tree_leaf_list[index + 1].v_list.insert(0, node.tree_leaf_list[index].v_list[-1])
-            node.tree_leaf_list[index].v_list.pop()
-            node.tree_leaf_mid_key[index] = node.tree_leaf_list[index + 1].v_list[0].key
+    """
+    删除后整理节点
+    """
 
-    def tran_right_to_left(self, node, index):
-        if not node.tree_leaf_list[index].is_leaf():
-            node.tree_leaf_list[index].tree_leaf_list.append(node.tree_leaf_list[index + 1].tree_leaf_list[0])
-            node.tree_leaf_list[index + 1].tree_leaf_list[0].par = node.tree_leaf_list[index]
-            node.tree_leaf_list[index].tree_leaf_mid_key.append(node.tree_leaf_mid_key[index])
-            node.tree_leaf_mid_key[index] = node.tree_leaf_list[index + 1].tree_leaf_mid_key[0]
-            node.tree_leaf_list[index + 1].tree_leaf_list.remove(node.tree_leaf_list[index + 1].tree_leaf_list[0])
-            node.tree_leaf_list[index + 1].tree_leaf_mid_key.remove(node.tree_leaf_list[index + 1].tree_leaf_mid_key[0])
-        else:
-            node.tree_leaf_list[index].vlist.append(node.tree_leaf_list[index + 1].vlist[0])
-            node.tree_leaf_list[index + 1].vlist.remove(node.tree_leaf_list[index + 1].vlist[0])
-            node.tree_leaf_mid_key[index] = node.tree_leaf_list[index + 1].vlist[0].key
-
-    def merge(self, node, index):
-        if node.tree_leaf_list[index].is_leaf():
-            node.tree_leaf_list[index].vlist = node.tree_leaf_list[index].vlist + node.tree_leaf_list[index + 1].vlist
-            node.tree_leaf_list[index].bro = node.clist[index + 1].bro
-        else:
-            node.tree_leaf_list[index].tree_leaf_mid_key = node.tree_leaf_list[index].tree_leaf_mid_key + [node.tree_leaf_mid_key[index]] + node.tree_leaf_list[index + 1].tree_leaf_mid_key
-            node.tree_leaf_list[index].tree_leaf_list = node.tree_leaf_list[index].tree_leaf_list + node.tree_leaf_list[index + 1].tree_leaf_list
-        node.tree_leaf_list.remove(node.tree_leaf_list[index + 1])
-        node.tree_leaf_mid_key.remove(node.tree_leaf_mid_key[index])
-        if node.tree_leaf_mid_key == []:
-            node.tree_leaf_list[0].par = None
-            self.__root = node.tree_leaf_list[0]
-            del node
+    def arrange_node(self, node, kv):
+        if node.par is None:
+            self.__root = node.par
             return self.__root
         else:
-            return node
+            index = bisect_right(node.par.tree_leaf_mid_key, kv.key)
+            if node.par.tree_leaf_list[index - 1].is_rich():
+                print("兄弟节点富裕，借一个给自己")
+                self.tran_left_to_right(node.par, index - 1)
+            else:
+                print("兄弟节点不富裕，合并成一家")
+                self.tran_right_to_left(node.par, index - 1, kv)
+
+    """
+    向兄弟借节点
+    """
+
+    @staticmethod
+    def tran_left_to_right(node, index):
+        if not node.tree_leaf_list[index].is_leaf():
+            _inter_node = node.tree_leaf_list[index].tree_leaf_list.pop()
+            node.tree_leaf_list[index + 1].tree_leaf_list.insert(0, _inter_node)
+            _inter_node.par = node.tree_leaf_list[index + 1]
+            node.tree_leaf_list[index + 1].tree_leaf_mid_key.insert(0, node.tree_leaf_mid_key[index])
+            node.tree_leaf_mid_key[index] = node.tree_leaf_list[index].tree_leaf_mid_key.pop()
+        else:
+            node.tree_leaf_list[index + 1].v_list.insert(0, node.tree_leaf_list[index].v_list.pop())
+            node.tree_leaf_mid_key[index] = node.tree_leaf_list[index + 1].v_list[0].key
+
+    """
+    和兄弟合家
+    """
+
+    def tran_right_to_left(self, node, index, kv):
+        if not node.tree_leaf_list[index].is_leaf():
+            node.tree_leaf_list[index].tree_leaf_list.append(node.tree_leaf_list[index + 1].tree_leaf_list[:])
+            for tree_node in node.tree_leaf_list[index + 1].tree_leaf_list:
+                tree_node.par = node.tree_leaf_list[index]
+            node.tree_leaf_list[index].tree_leaf_mid_key.append(node.tree_leaf_mid_key[index])
+            node.tree_leaf_mid_key[index] = node.tree_leaf_list[index + 1].tree_leaf_mid_key[0]
+            node.tree_leaf_list[index + 1].tree_leaf_list.remove(node.tree_leaf_list[index + 1].tree_leaf_list[:])
+            node.tree_leaf_list[index + 1].tree_leaf_mid_key.remove(node.tree_leaf_list[index + 1].tree_leaf_mid_key[:])
+        else:
+            node.tree_leaf_list[index].bro = node.tree_leaf_list[index + 1].bro
+            for _leaf_node in node.tree_leaf_list[index + 1].v_list:
+                node.tree_leaf_list[index].v_list.append(_leaf_node)
+            node.tree_leaf_list.remove(node.tree_leaf_list[index + 1])
+            del node.tree_leaf_list[index + 1]
+            node.tree_leaf_mid_key.remove(node.tree_leaf_mid_key[index])
+        if node.par is None:
+            self.__root = node.par
+            return self.__root
+        elif node.par.is_rich():
+            return 0
+        else:
+            self.arrange_node(node.par, kv)
 
     def delete(self, key_value):
         self.del_node(self.__root, key_value)
 
 
-def test():
-    mini = 2
-    maxi = 60
-    testlist = []
-    for i in range(1, 10):
-        key = i
-        value = i
-        testlist.append(KeyValue(key, value))
-    mybptree = Btree(4, 4)
-    for kv in testlist:
-        mybptree.insert(kv)
-    mybptree.delete(testlist[0])
-    mybptree.show()
-    print('\nkey of this b+tree is \n')
-    print([kv.key for kv in mybptree.traversal()])
-
-
 if __name__ == '__main__':
-    test()
+    bp_tree = Btree(4, 4)

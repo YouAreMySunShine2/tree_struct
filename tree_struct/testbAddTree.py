@@ -92,6 +92,21 @@ class BtreeTestCase(unittest.TestCase):
             bp_tree.insert(key_value)
         bp_tree.show()
 
+    def test_delete(self):
+        bp_tree = bAddTree.Btree(self.leaf+2, self._inter_node_num+2)
+        for key_value in self.test_list:
+            bp_tree.insert(key_value)
+        bp_tree.show()
+        bp_tree.delete(self.test_list[12])
+        bp_tree.delete(self.test_list[5])
+        bp_tree.delete(self.test_list[20])
+        bp_tree.delete(self.test_list[4])
+        bp_tree.insert(self.test_list[5])
+        bp_tree.show()
+        result = bp_tree.traversal()
+        for __key_value in result:
+            print(str(__key_value.key) + ":" + str(__key_value.value))
+
     @staticmethod
     def test_array_split():
         a_array = [1, 2, 3, 4, 5, 6, 7, 8, 9]
